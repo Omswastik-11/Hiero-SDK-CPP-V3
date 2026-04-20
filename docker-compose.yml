@@ -1,0 +1,8 @@
+services:
+  dev:
+    build:
+      context: .
+      dockerfile: tooling/docker/dev.Dockerfile
+    working_dir: /workspace
+    volumes:
+      - ./:/workspace
