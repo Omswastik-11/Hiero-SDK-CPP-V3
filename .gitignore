@@ -1,0 +1,9 @@
+build/
+out/
+.cache/
+.vscode/
+compile_commands.json
+*.obj
+*.pdb
+*.ilk
+*.user
