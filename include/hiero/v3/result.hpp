@@ -1,9 +1,9 @@
 #pragma once
 
-#include <optional>
 #include <stdexcept>
 #include <string>
 #include <utility>
+#include <variant>
 
 namespace hiero::v3 {
 
@@ -28,45 +28,43 @@ public:
     return Result(Error{code, std::move(message)});
   }
 
-  bool ok() const noexcept { return m_ok; }
+  [[nodiscard]] bool ok() const noexcept {
+    return std::holds_alternative<T>(m_state);
+  }
 
   explicit operator bool() const noexcept { return ok(); }
 
   const T &value() const {
-    if (!m_ok) {
+    if (!ok()) {
       throw std::logic_error("Attempted to access value() on failed Result");
     }
 
-    return *m_value;
+    return std::get<T>(m_state);
   }
 
   T &value() {
-    if (!m_ok) {
+    if (!ok()) {
       throw std::logic_error("Attempted to access value() on failed Result");
     }
 
-    return *m_value;
+    return std::get<T>(m_state);
   }
 
   const Error &error() const {
-    if (m_ok) {
+    if (ok()) {
       throw std::logic_error(
           "Attempted to access error() on successful Result");
     }
 
-    return *m_error;
+    return std::get<Error>(m_state);
   }
 
 private:
-  explicit Result(T value)
-      : m_ok(true), m_value(std::move(value)), m_error(std::nullopt) {}
+  explicit Result(T value) : m_state(std::move(value)) {}
 
-  explicit Result(Error error)
-      : m_ok(false), m_value(std::nullopt), m_error(std::move(error)) {}
+  explicit Result(Error error) : m_state(std::move(error)) {}
 
-  bool m_ok;
-  std::optional<T> m_value;
-  std::optional<Error> m_error;
+  std::variant<T, Error> m_state;
 };
 
 } // namespace hiero::v3

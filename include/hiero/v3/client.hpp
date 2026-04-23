@@ -28,9 +28,11 @@ public:
          std::shared_ptr<IExecutor> executor =
              std::make_shared<SingleThreadExecutor>());
 
-  Result<TransferReceipt> transfer(const TransferRequest &request);
-  Result<BalanceResponse> getBalance(const BalanceRequest &request);
-  Result<MirrorAccountResponse>
+  [[nodiscard]] Result<TransferReceipt>
+  transfer(const TransferRequest &request);
+  [[nodiscard]] Result<BalanceResponse>
+  getBalance(const BalanceRequest &request);
+  [[nodiscard]] Result<MirrorAccountResponse>
   getMirrorAccount(const MirrorAccountRequest &request);
 
   std::future<Result<TransferReceipt>> transferAsync(TransferRequest request);
