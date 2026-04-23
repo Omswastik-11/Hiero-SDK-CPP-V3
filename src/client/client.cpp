@@ -35,7 +35,7 @@ Client::Client(std::shared_ptr<IConsensusTransport> consensusTransport,
              Options{}, std::move(executor)) {}
 
 Result<TransferReceipt> Client::transfer(const TransferRequest &request) {
-  if (request.fromAccountId.empty() || request.toAccountId.empty()) {
+  if (!request.fromAccountId.isSet() || !request.toAccountId.isSet()) {
     return Result<TransferReceipt>::Fail(
         ErrorCode::kInvalidArgument,
         "Transfer requires fromAccountId and toAccountId");
@@ -51,7 +51,7 @@ Result<TransferReceipt> Client::transfer(const TransferRequest &request) {
 }
 
 Result<BalanceResponse> Client::getBalance(const BalanceRequest &request) {
-  if (request.accountId.empty()) {
+  if (!request.accountId.isSet()) {
     return Result<BalanceResponse>::Fail(ErrorCode::kInvalidArgument,
                                          "Balance query requires accountId");
   }
@@ -62,7 +62,7 @@ Result<BalanceResponse> Client::getBalance(const BalanceRequest &request) {
 
 Result<MirrorAccountResponse>
 Client::getMirrorAccount(const MirrorAccountRequest &request) {
-  if (request.accountId.empty()) {
+  if (!request.accountId.isSet()) {
     return Result<MirrorAccountResponse>::Fail(
         ErrorCode::kInvalidArgument, "Mirror query requires accountId");
   }

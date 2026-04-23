@@ -7,7 +7,7 @@ namespace hiero::v3 {
 
 namespace {
 
-bool isValidAccountId(const AccountId &accountId) { return !accountId.empty(); }
+bool isValidAccountId(const AccountId &accountId) { return accountId.isSet(); }
 
 std::string makeTimestamp(uint64_t counter) {
   return std::to_string(1700000000ULL + counter);
@@ -26,7 +26,8 @@ InMemoryConsensusTransport::InMemoryConsensusTransport(
 void InMemoryConsensusTransport::setBalance(const AccountId &accountId,
                                             int64_t amountTinybar) {
   if (!isValidAccountId(accountId)) {
-    throw std::invalid_argument("accountId cannot be empty");
+    throw std::invalid_argument(
+        "accountId must include a non-zero account num");
   }
 
   std::lock_guard<std::mutex> lock(m_state->mutex);

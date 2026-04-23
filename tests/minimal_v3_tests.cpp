@@ -56,18 +56,21 @@ void testSuccessfulTransferAndQueries() {
       std::make_shared<hiero::v3::InMemoryConsensusTransport>(state);
   auto mirror = std::make_shared<hiero::v3::InMemoryMirrorTransport>(state);
 
-  consensus->setBalance("0.0.2001", 1000);
-  consensus->setBalance("0.0.2002", 200);
+  const hiero::v3::AccountId accountA{0, 0, 2001};
+  const hiero::v3::AccountId accountB{0, 0, 2002};
+
+  consensus->setBalance(accountA, 1000);
+  consensus->setBalance(accountB, 200);
 
   hiero::v3::Client client(consensus, mirror, hiero::v3::Client::Options{3},
                            std::make_shared<hiero::v3::InlineExecutor>());
 
-  auto transfer = client.transfer({"0.0.2001", "0.0.2002", 300});
+  auto transfer = client.transfer({accountA, accountB, 300});
   expect(transfer.ok(), "transfer should succeed");
 
-  auto fromBalance = client.getBalance({"0.0.2001"});
-  auto toBalance = client.getBalance({"0.0.2002"});
-  auto mirrorView = client.getMirrorAccount({"0.0.2002"});
+  auto fromBalance = client.getBalance({accountA});
+  auto toBalance = client.getBalance({accountB});
+  auto mirrorView = client.getMirrorAccount({accountB});
 
   expect(fromBalance.ok(), "from account balance query should succeed");
   expect(toBalance.ok(), "to account balance query should succeed");
@@ -90,13 +93,16 @@ void testInsufficientBalance() {
       std::make_shared<hiero::v3::InMemoryConsensusTransport>(state);
   auto mirror = std::make_shared<hiero::v3::InMemoryMirrorTransport>(state);
 
-  consensus->setBalance("0.0.3001", 10);
-  consensus->setBalance("0.0.3002", 0);
+  const hiero::v3::AccountId accountA{0, 0, 3001};
+  const hiero::v3::AccountId accountB{0, 0, 3002};
+
+  consensus->setBalance(accountA, 10);
+  consensus->setBalance(accountB, 0);
 
   hiero::v3::Client client(consensus, mirror, hiero::v3::Client::Options{2},
                            std::make_shared<hiero::v3::InlineExecutor>());
 
-  auto result = client.transfer({"0.0.3001", "0.0.3002", 999});
+  auto result = client.transfer({accountA, accountB, 999});
   expect(!result.ok(),
          "transfer should fail when amount exceeds source balance");
 
@@ -112,16 +118,19 @@ void testAsyncTransfer() {
       std::make_shared<hiero::v3::InMemoryConsensusTransport>(state);
   auto mirror = std::make_shared<hiero::v3::InMemoryMirrorTransport>(state);
 
-  consensus->setBalance("0.0.4001", 50);
-  consensus->setBalance("0.0.4002", 10);
+  const hiero::v3::AccountId accountA{0, 0, 4001};
+  const hiero::v3::AccountId accountB{0, 0, 4002};
+
+  consensus->setBalance(accountA, 50);
+  consensus->setBalance(accountB, 10);
 
   hiero::v3::Client client(consensus, mirror);
 
-  auto future = client.transferAsync({"0.0.4001", "0.0.4002", 25});
+  auto future = client.transferAsync({accountA, accountB, 25});
   auto result = future.get();
   expect(result.ok(), "async transfer should succeed");
 
-  auto updated = client.getBalance({"0.0.4002"});
+  auto updated = client.getBalance({accountB});
   if (updated.ok()) {
     expect(updated.value().balanceTinybar == 35,
            "destination account should reflect async transfer");
@@ -136,14 +145,17 @@ void testRetryOnNetworkFailure() {
       std::make_shared<FlakyConsensusTransport>(consensusBase, 1);
   auto mirror = std::make_shared<hiero::v3::InMemoryMirrorTransport>(state);
 
-  consensusBase->setBalance("0.0.5001", 100);
-  consensusBase->setBalance("0.0.5002", 0);
+  const hiero::v3::AccountId accountA{0, 0, 5001};
+  const hiero::v3::AccountId accountB{0, 0, 5002};
+
+  consensusBase->setBalance(accountA, 100);
+  consensusBase->setBalance(accountB, 0);
 
   hiero::v3::Client client(flakyConsensus, mirror,
                            hiero::v3::Client::Options{3},
                            std::make_shared<hiero::v3::InlineExecutor>());
 
-  auto result = client.transfer({"0.0.5001", "0.0.5002", 20});
+  auto result = client.transfer({accountA, accountB, 20});
   expect(result.ok(), "transfer should succeed after one retriable failure");
   expect(flakyConsensus->attempts() == 2,
          "retriable path should attempt transfer twice");
