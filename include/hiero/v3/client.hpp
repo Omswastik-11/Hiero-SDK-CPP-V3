@@ -4,13 +4,22 @@
 #include <functional>
 #include <future>
 #include <memory>
+#include <optional>
 
 #include "hiero/v3/executor.hpp"
+#include "hiero/v3/keys.hpp"
+#include "hiero/v3/policy.hpp"
 #include "hiero/v3/result.hpp"
 #include "hiero/v3/transport.hpp"
 #include "hiero/v3/types.hpp"
 
 namespace hiero::v3 {
+
+// The operator identity: account that pays for transactions and its key.
+struct OperatorAccount {
+  AccountId accountId;
+  PrivateKey privateKey;
+};
 
 class Client final {
 public:
@@ -27,6 +36,28 @@ public:
          std::shared_ptr<IMirrorTransport> mirrorTransport,
          std::shared_ptr<IExecutor> executor =
              std::make_shared<SingleThreadExecutor>());
+
+  /// Set the operator account (payer / signer).
+  void setOperator(AccountId accountId, PrivateKey key);
+
+  /// Check whether an operator has been configured.
+  [[nodiscard]] bool hasOperator() const noexcept {
+    return m_operator.has_value();
+  }
+
+  /// Get the operator account (if set).
+  [[nodiscard]] const std::optional<OperatorAccount> &
+  operatorAccount() const noexcept {
+    return m_operator;
+  }
+
+  // Get the consensus transport (used internally by BuiltTransaction::execute).
+  [[nodiscard]] IConsensusTransport &consensus() { return *m_consensus; }
+
+  /// Get the retry options.
+  [[nodiscard]] const Options &options() const noexcept { return m_options; }
+
+  // --- Direct convenience APIs (kept from earlier prototype) ---
 
   [[nodiscard]] Result<TransferReceipt>
   transfer(const TransferRequest &request);
@@ -53,6 +84,7 @@ private:
   std::shared_ptr<IMirrorTransport> m_mirror;
   std::shared_ptr<IExecutor> m_executor;
   Options m_options;
+  std::optional<OperatorAccount> m_operator;
 };
 
 template <typename Operation>

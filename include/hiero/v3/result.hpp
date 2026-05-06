@@ -7,6 +7,7 @@
 
 namespace hiero::v3 {
 
+// Error categories returned by SDK operations.
 enum class ErrorCode {
   kInvalidArgument,
   kInsufficientBalance,
@@ -15,11 +16,14 @@ enum class ErrorCode {
   kInternal
 };
 
+// Holds an error code and a human-readable message.
 struct Error {
   ErrorCode code;
   std::string message;
 };
 
+// A typed result container: holds either a success value or an error.
+// Forces the caller to check before accessing the value.
 template <typename T> class Result {
 public:
   static Result Ok(T value) { return Result(std::move(value)); }

@@ -5,6 +5,7 @@
 
 namespace hiero::v3 {
 
+// Interface for talking to consensus nodes (transactions + queries).
 class IConsensusTransport {
 public:
   virtual ~IConsensusTransport() = default;
@@ -14,6 +15,7 @@ public:
   virtual Result<BalanceResponse> getBalance(const BalanceRequest &request) = 0;
 };
 
+// Interface for reading data from mirror nodes.
 class IMirrorTransport {
 public:
   virtual ~IMirrorTransport() = default;

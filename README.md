@@ -1,36 +1,49 @@
-# Hiero C++ V3 Minimal Prototype
+# Hiero C++ V3 SDK Prototype
 
-This repository contains a first minimal C++ V3 SDK prototype intended for architecture validation, mentorship discussion, and iterative documentation improvements.
-
-The prototype is intentionally small but runnable end-to-end.
+A minimal but runnable C++ prototype for the Hiero V3 SDK architecture. Built for architecture validation, mentorship discussion, and upstream documentation improvements.
 
 ## Why this exists
 
 - Validate a V3-style SDK shape before broad migration.
-- Demonstrate one transaction path, one query path, and one mirror read path.
+- Demonstrate a full transaction lifecycle: `build -> sign -> execute`.
+- Demonstrate query and mirror read paths.
 - Test non-breaking API patterns (stable public types and isolated transport details).
 - Provide concrete evidence for upstream documentation improvements.
 
-## What is implemented now
+## What is implemented
 
-1. Public API surface
+1. **Public API surface**
 - `Result<T>` model for typed success/failure handling.
 - Core request/response types for transfer, balance query, and mirror query.
-- `Client` facade with sync and async APIs.
+- `Client` facade with sync and async APIs and operator account support.
 
-2. Runtime and async execution
+2. **Transaction lifecycle**
+- `TransferTransactionBuilder` for constructing transfers with a builder pattern.
+- `BuiltTransaction<ResponseT>` as an immutable, signable transaction.
+- Validation at build time (net-zero balance, valid accounts).
+- Type-safe response propagation through build, sign, and execute.
+
+3. **Key management**
+- `PrivateKey` with deterministic test key generation.
+- `SignerFunction` as a pluggable signer callback.
+- `OperatorAccount` bundling an account ID with its signing key.
+- Support for multiple signatures on a single transaction.
+
+4. **Runtime and async execution**
 - Retry-aware call path in `Client` for retriable errors.
-- Pluggable executor interface.
-- `SingleThreadExecutor` implementation (avoids direct `std::async` dependency as the only strategy).
+- `RetryPolicy` with configurable backoff parameters.
+- Pluggable executor interface (`IExecutor`).
+- `SingleThreadExecutor` implementation.
 
-3. Transport abstraction and prototype backends
+5. **Transport abstraction and prototype backends**
 - `IConsensusTransport` and `IMirrorTransport` interfaces.
 - In-memory consensus transport for transfer and balance operations.
 - In-memory mirror transport for account read operations.
+- Thread-safe shared `LedgerState` for deterministic testing.
 
-4. Validation assets
-- Example app: transfer and balance flow.
-- Minimal test suite with retry and async coverage.
+6. **Validation assets**
+- Two example apps: basic transfer flow and full builder lifecycle.
+- Two test suites: minimal V3 tests and builder lifecycle tests.
 - Docker-based build, test, and lint workflow.
 
 ## Repository layout
@@ -42,28 +55,37 @@ The prototype is intentionally small but runnable end-to-end.
 |   |-- client.hpp
 |   |-- executor.hpp
 |   |-- in_memory_transport.hpp
+|   |-- keys.hpp
+|   |-- policy.hpp
 |   |-- result.hpp
+|   |-- transaction.hpp
+|   |-- transfer_builder.hpp
 |   |-- transport.hpp
 |   `-- types.hpp
 |-- src/
 |   |-- client/client.cpp
+|   |-- keys/keys.cpp
 |   |-- runtime/executor.cpp
+|   |-- transactions/transfer_builder.cpp
 |   `-- transport/in_memory_transport.cpp
-|-- tests/minimal_v3_tests.cpp
-|-- examples/transfer_and_balance.cpp
+|-- tests/
+|   |-- minimal_v3_tests.cpp
+|   `-- builder_lifecycle_tests.cpp
+|-- examples/
+|   |-- transfer_and_balance.cpp
+|   `-- builder_sign_execute.cpp
 |-- tooling/docker/dev.Dockerfile
 |-- docker-compose.yml
 |-- scripts/
 |   |-- build-and-test.sh
 |   `-- lint.sh
 `-- docs/
-	|-- architecture.md
-	`-- v3-cpp-prototype-foundation-and-plan.md
+    `-- architecture.md
 ```
 
 ## Prerequisites
 
-- Docker Desktop (Windows)
+- Docker Desktop (Windows, macOS, or Linux)
 - Docker Compose v2 (`docker compose` command)
 
 No local compiler setup is required for the default workflow.
@@ -76,22 +98,22 @@ No local compiler setup is required for the default workflow.
 docker compose build dev
 ```
 
-2. Configure, build, and run tests:
+2. Configure, build, and run all tests:
 
 ```bash
-docker compose run --rm dev bash -lc "bash ./scripts/build-and-test.sh"
+docker compose run --rm dev bash -c "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug && cmake --build build -j && ctest --test-dir build --output-on-failure"
 ```
 
-3. Run format and lint checks:
+3. Run the builder lifecycle example:
 
 ```bash
-docker compose run --rm dev bash -lc "bash ./scripts/lint.sh"
+docker compose run --rm dev bash -c "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug && cmake --build build -j && ./build/builder_sign_execute"
 ```
 
-4. Run the example app:
+4. Run format and lint checks:
 
 ```bash
-docker compose run --rm dev bash -lc "cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug && cmake --build build -j && ./build/transfer_and_balance"
+docker compose run --rm dev bash -c "bash ./scripts/lint.sh"
 ```
 
 ## Optional local workflow (non-Docker)
@@ -105,18 +127,21 @@ ctest --test-dir build --output-on-failure
 ```
 
 ## Documentation
-- [Current architecture and next steps](docs/architecture.md)
+
+- [Architecture and next steps](docs/architecture.md)
 
 ## Current limitations
 
-- In-memory transports are prototype backends only.
-- No real network integration in this first slice.
+- In-memory transports are prototype backends only. No real network integration yet.
+- Signing uses a simplified stub. Real Ed25519 would require OpenSSL or libsodium.
 - Error model is intentionally small for iteration speed.
-- No packaging/distribution artifacts yet.
+- `BuiltTransaction::execute` uses a template specialization; a generic dispatch is planned.
 
 ## Next implementation targets
 
-1. Add transport adapters that map to real consensus and mirror interfaces.
-2. Expand API surface with additional transaction and query families.
-3. Strengthen tests with transport contract checks and failure scenarios.
-4. Propose upstream doc improvements backed by prototype evidence.
+1. Add `TransactionId` generation from operator account and valid-start timestamp.
+2. Generalize the transaction pipeline so new transaction types plug in cleanly.
+3. Add transport adapters that map to real consensus and mirror interfaces.
+4. Expand API surface with additional transaction and query families.
+5. Strengthen tests with transport contract checks and failure scenarios.
+6. Propose upstream doc improvements backed by prototype evidence.

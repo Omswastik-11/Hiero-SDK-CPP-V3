@@ -1,4 +1,5 @@
 #include "hiero/v3/client.hpp"
+#include "hiero/v3/transaction.hpp"
 
 #include <stdexcept>
 #include <utility>
@@ -33,6 +34,10 @@ Client::Client(std::shared_ptr<IConsensusTransport> consensusTransport,
                std::shared_ptr<IExecutor> executor)
     : Client(std::move(consensusTransport), std::move(mirrorTransport),
              Options{}, std::move(executor)) {}
+
+void Client::setOperator(AccountId accountId, PrivateKey key) {
+  m_operator = OperatorAccount{accountId, std::move(key)};
+}
 
 Result<TransferReceipt> Client::transfer(const TransferRequest &request) {
   if (!request.fromAccountId.isSet() || !request.toAccountId.isSet()) {
@@ -103,6 +108,57 @@ bool Client::IsRetriable(ErrorCode code) {
   }
 
   return false;
+}
+
+// --- BuiltTransaction<TransferReceipt>::execute specialization ---
+
+template <>
+Result<TransferReceipt>
+BuiltTransaction<TransferReceipt>::execute(Client &client) {
+  if (!isSigned()) {
+    return Result<TransferReceipt>::Fail(
+        ErrorCode::kInvalidArgument,
+        "Transaction must be signed before execution");
+  }
+
+  // Decode the serialized body back into a TransferRequest.
+  // In a real SDK the transport layer would accept raw bytes.
+  // For the PoC, we re-parse our simple encoding.
+  if (m_serializedBody.size() < 32) {
+    return Result<TransferReceipt>::Fail(ErrorCode::kInvalidArgument,
+                                         "Malformed transaction body");
+  }
+
+  auto readU64 = [this](size_t offset) -> uint64_t {
+    uint64_t val = 0;
+    for (int i = 0; i < 8; ++i) {
+      val |= static_cast<uint64_t>(m_serializedBody[offset + i]) << (i * 8U);
+    }
+    return val;
+  };
+
+  // Reconstruct the first debit and first credit as a simple transfer.
+  // A full implementation would pass the raw bytes to the transport.
+  AccountId fromAccount{};
+  AccountId toAccount{};
+  int64_t amount = 0;
+
+  size_t entryCount = m_serializedBody.size() / 32;
+  for (size_t i = 0; i < entryCount; ++i) {
+    size_t off = i * 32;
+    AccountId acct{readU64(off), readU64(off + 8), readU64(off + 16)};
+    auto amt = static_cast<int64_t>(readU64(off + 24));
+
+    if (amt < 0) {
+      fromAccount = acct;
+      amount = -amt;
+    } else if (amt > 0) {
+      toAccount = acct;
+    }
+  }
+
+  TransferRequest request{fromAccount, toAccount, amount};
+  return client.consensus().submitTransfer(request);
 }
 
 } // namespace hiero::v3

@@ -11,6 +11,8 @@ add_library(hiero_v3_sdk
     src/client/client.cpp
     src/runtime/executor.cpp
     src/transport/in_memory_transport.cpp
+    src/keys/keys.cpp
+    src/transactions/transfer_builder.cpp
 )
 
 target_include_directories(hiero_v3_sdk
@@ -32,6 +34,12 @@ add_executable(transfer_and_balance
 
 target_link_libraries(transfer_and_balance PRIVATE hiero_v3_sdk)
 
+add_executable(builder_sign_execute
+    examples/builder_sign_execute.cpp
+)
+
+target_link_libraries(builder_sign_execute PRIVATE hiero_v3_sdk)
+
 include(CTest)
 if (BUILD_TESTING)
     add_executable(minimal_v3_tests
@@ -39,4 +47,10 @@ if (BUILD_TESTING)
     )
     target_link_libraries(minimal_v3_tests PRIVATE hiero_v3_sdk)
     add_test(NAME minimal_v3_tests COMMAND minimal_v3_tests)
+
+    add_executable(builder_lifecycle_tests
+        tests/builder_lifecycle_tests.cpp
+    )
+    target_link_libraries(builder_lifecycle_tests PRIVATE hiero_v3_sdk)
+    add_test(NAME builder_lifecycle_tests COMMAND builder_lifecycle_tests)
 endif()

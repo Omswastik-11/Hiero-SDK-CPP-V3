@@ -14,20 +14,28 @@ This file documents:
 The prototype follows a layered model:
 
 1. Public API layer
-- `Client` facade
+- `Client` facade with operator account support
 - `Result<T>` success/error return type
 - typed request/response models (`TransferRequest`, `BalanceRequest`, `MirrorAccountRequest`, etc.)
+- `TransferTransactionBuilder` for constructing transfer transactions
+- `BuiltTransaction<ResponseT>` as an immutable, signable transaction
 
-2. Runtime layer
+2. Key management layer
+- `PrivateKey` for Ed25519 key representation (stubbed for prototype)
+- `SignerFunction` as a pluggable signer callback
+- `OperatorAccount` bundling an account ID with its signing key
+
+3. Runtime layer
 - retry-aware execution path inside `Client`
+- `RetryPolicy` with configurable backoff parameters
 - pluggable executor interface
 - `SingleThreadExecutor` for async task dispatch
 
-3. Transport abstraction layer
+4. Transport abstraction layer
 - `IConsensusTransport`
 - `IMirrorTransport`
 
-4. Prototype backend layer
+5. Prototype backend layer
 - `InMemoryConsensusTransport`
 - `InMemoryMirrorTransport`
 - shared `LedgerState` for deterministic tests and demos
@@ -38,9 +46,14 @@ The prototype follows a layered model:
 flowchart LR
     APP[Application] --> CLIENT[Client API]
 
-    CLIENT --> RESULT[Result<T> mapping]
+    CLIENT --> BUILDER[TransferTransactionBuilder]
+    CLIENT --> RESULT[Result mapping]
     CLIENT --> RETRY[Retry policy]
     CLIENT --> EXEC[Executor interface]
+    CLIENT --> KEYS[Keys / Signing]
+
+    BUILDER --> BUILT_TX[BuiltTransaction]
+    BUILT_TX --> CLIENT
 
     CLIENT --> CONS_IF[IConsensusTransport]
     CLIENT --> MIRROR_IF[IMirrorTransport]
@@ -56,7 +69,31 @@ flowchart LR
 
 ## 3) Request flow (current)
 
-### Transfer and follow-up reads
+### Transaction lifecycle: build -> sign -> execute
+
+```mermaid
+sequenceDiagram
+    participant App as Application
+    participant Builder as TransferTransactionBuilder
+    participant TX as BuiltTransaction
+    participant Client as Client
+    participant Cons as IConsensusTransport
+
+    App->>Builder: addTransfer(from, amount)
+    App->>Builder: addTransfer(to, amount)
+    App->>Builder: build()
+    Builder-->>App: Result<BuiltTransaction>
+
+    App->>TX: sign(operatorKey)
+    App->>TX: execute(client)
+    TX->>Client: submit to consensus
+    Client->>Cons: submitTransfer(request)
+    Cons-->>Client: Result<TransferReceipt>
+    Client-->>TX: Result<TransferReceipt>
+    TX-->>App: Result<TransferReceipt>
+```
+
+### Transfer and follow-up reads (direct API)
 
 ```mermaid
 sequenceDiagram
@@ -93,10 +130,21 @@ sequenceDiagram
 2. Transport isolation
 - Consensus and mirror paths are represented as interfaces so backend implementations can change without breaking API shape.
 
-3. Async abstraction
+3. Two-step transaction lifecycle
+- Mutable builder collects fields, validates at `build()` time, and produces an immutable `BuiltTransaction`.
+- `BuiltTransaction` carries the response type (`ResponseT`) through signing and execution without unsafe casts.
+
+4. Explicit signing
+- `PrivateKey` and `SignerFunction` let the developer control exactly which keys sign a transaction.
+- Multiple signatures are supported by calling `sign()` more than once.
+
+5. Operator identity
+- `OperatorAccount` pairs an account ID with its key, wired into the Client for default signing.
+
+6. Async abstraction
 - Async methods use an executor interface rather than hard-coding `std::async` as the only execution model.
 
-4. Testability by design
+7. Testability by design
 - In-memory backend allows deterministic unit and integration-style tests for the first vertical slice.
 
 ---
@@ -104,10 +152,10 @@ sequenceDiagram
 ## 5) Current limitations
 
 - No real network transport adapters yet (in-memory only).
-- Retry policy is minimal and currently based on broad error categories.
+- `BuiltTransaction::execute` currently has a template specialization for `TransferReceipt`; a generic dispatch is needed for more transaction types.
 - Error code set is intentionally small.
 - No wire-level serialization/protobuf mapping in this repository yet.
-- No production security model (key storage, signing service integration, etc.) in this first slice.
+- Signing uses a simplified stub; real Ed25519 would require OpenSSL or libsodium.
 
 ---
 
@@ -119,12 +167,12 @@ sequenceDiagram
 - keep protocol-specific classes private to adapter implementation
 
 ### Phase B: API expansion
-- add at least one additional transaction family
+- add at least one additional transaction family (e.g. AccountCreate)
 - add additional query family
-- standardize request builder patterns where needed
+- generalize the BuiltTransaction dispatch so specializations are not needed per type
 
 ### Phase C: runtime hardening
-- refine retry taxonomy and backoff behavior
+- integrate `RetryPolicy` with actual backoff timing
 - add explicit timeout/deadline handling in runtime policy
 - expand async strategy options (single thread, thread pool, external scheduler)
 
@@ -145,5 +193,6 @@ sequenceDiagram
 Next milestone is successful when:
 - real transport adapter interfaces are wired (or mocked to exact contracts)
 - one additional transaction/query is added without API churn
+- `BuiltTransaction::execute` works generically without per-type specializations
 - test coverage includes retry and async failure scenarios
 - documentation updates include concrete before/after proposals upstream

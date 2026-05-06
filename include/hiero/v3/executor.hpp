@@ -8,6 +8,7 @@
 
 namespace hiero::v3 {
 
+// Interface for running tasks. Lets us swap execution strategies.
 class IExecutor {
 public:
   virtual ~IExecutor() = default;
@@ -15,11 +16,13 @@ public:
   virtual void execute(std::function<void()> task) = 0;
 };
 
+// Runs the task immediately on the calling thread. Handy for tests.
 class InlineExecutor final : public IExecutor {
 public:
   void execute(std::function<void()> task) override { task(); }
 };
 
+// Runs tasks on a dedicated background thread with a simple queue.
 class SingleThreadExecutor final : public IExecutor {
 public:
   SingleThreadExecutor();

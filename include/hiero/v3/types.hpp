@@ -6,6 +6,7 @@
 
 namespace hiero::v3 {
 
+// Identifies an account on the Hiero network (shard.realm.num format).
 struct AccountId {
   uint64_t shard = 0;
   uint64_t realm = 0;
@@ -23,16 +24,19 @@ inline std::string ToString(const AccountId &accountId) {
          std::to_string(accountId.realm) + "." + std::to_string(accountId.num);
 }
 
+// Request for a simple hbar transfer between two accounts.
 struct TransferRequest {
   AccountId fromAccountId;
   AccountId toAccountId;
   int64_t amountTinybar = 0;
 };
 
+// Receipt returned after a successful transfer.
 struct TransferReceipt {
   std::string transactionId;
 };
 
+// Request to look up an account's hbar balance.
 struct BalanceRequest {
   AccountId accountId;
 };
@@ -42,6 +46,7 @@ struct BalanceResponse {
   int64_t balanceTinybar = 0;
 };
 
+// Request to read account data from a mirror node.
 struct MirrorAccountRequest {
   AccountId accountId;
 };
