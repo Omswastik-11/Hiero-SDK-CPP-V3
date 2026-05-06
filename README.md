@@ -105,8 +105,6 @@ ctest --test-dir build --output-on-failure
 ```
 
 ## Documentation
-
-- [Prototype foundation and execution plan](docs/v3-cpp-prototype-foundation-and-plan.md)
 - [Current architecture and next steps](docs/architecture.md)
 
 ## Current limitations
